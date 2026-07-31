@@ -41,6 +41,57 @@ class FakeSession:
         return FakeResponse()
 
 
+class FakeChemicalScoreResponse:
+    status_code = 200
+
+    def json(self):
+        return {
+            "status": "success",
+            "score": 92.5,
+            "coverage": 1.0,
+            "coverage_details": {"execution_coverage": 1.0},
+            "score_tree": {
+                "children": [
+                    {
+                        "id": "feasibility",
+                        "score": 90.0,
+                        "status": "success",
+                        "effective_weight": 0.6,
+                    },
+                    {
+                        "id": "evidence_support",
+                        "score": None,
+                        "status": "not_applicable",
+                        "effective_weight": 0.0,
+                    },
+                    {
+                        "id": "safety",
+                        "score": 100.0,
+                        "status": "success",
+                        "effective_weight": 0.2,
+                    },
+                    {
+                        "id": "economy",
+                        "score": 90.0,
+                        "status": "success",
+                        "effective_weight": 0.2,
+                    },
+                ]
+            },
+            "flags": [],
+            "engine_version": "0.4.0",
+        }
+
+
+class FakeChemicalScoreSession:
+    def __init__(self):
+        self.calls = []
+
+    def post(self, url, json, timeout):
+        self.calls.append((url, json, timeout))
+        return FakeChemicalScoreResponse()
+
+
 def route(materials: str, *, is_match: bool, is_ai: bool, target: str = "CCO"):
     return {
         "reaction_smiles": f"{materials}>>{target}",
@@ -110,8 +161,16 @@ def test_priority_is_non_ai_then_chemical_score_then_legacy_score():
     assert [candidate["chemical_score"] for candidate in ordered] == [90, 60, 100]
 
 
-def test_real_chemical_score_adapter_returns_compact_breakdown():
-    result = ChemicalReactionScorer(warm_up=False).score("CC(=O)O.CCO>>CCOC(C)=O")
+def test_chemical_score_adapter_posts_reaction_smiles_and_caches_result():
+    session = FakeChemicalScoreSession()
+    scorer = ChemicalReactionScorer(
+        api_url="http://chemical-score.test/v1/evaluations",
+        timeout=7.5,
+        session=session,
+    )
+
+    result = scorer.score("CC(=O)O.CCO>>CCOC(C)=O")
+    cached = scorer.score("CC(=O)O.CCO>>CCOC(C)=O")
 
     assert 0 <= result["chemical_score"] <= 100
     assert result["chemical_score_status"] == "success"
@@ -121,6 +180,14 @@ def test_real_chemical_score_adapter_returns_compact_breakdown():
         "safety",
         "economy",
     }
+    assert cached == result
+    assert session.calls == [
+        (
+            "http://chemical-score.test/v1/evaluations",
+            {"reaction_smiles": "CC(=O)O.CCO>>CCOC(C)=O"},
+            7.5,
+        )
+    ]
 
 
 def test_formatter_exposes_chemical_ranking_fields():

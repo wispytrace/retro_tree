@@ -29,8 +29,17 @@ pip install -r requirements.txt
 export SCIFINDER_API_KEY="你的 SciFinder 接口 Key"
 # 也兼容旧变量名：export RETRO_API_KEY="你的 Key"
 
+# 先在 chemical_score 项目根目录启动评分服务（默认端口 9528）
+python ../chemical_score/app.py
+
+# 再启动本项目
 uvicorn app:app --host 0.0.0.0 --port 7755 --reload
 ```
+
+评分服务默认请求 `http://127.0.0.1:9528/v1/evaluations`，可通过以下环境变量覆盖：
+
+- `CHEMICAL_SCORE_API_URL`：Chemical Score 单反应 POST 接口地址；
+- `CHEMICAL_SCORE_API_TIMEOUT`：单次评分超时秒数，默认 30 秒。
 
 ## 本地候选过滤与排序
 
@@ -39,7 +48,7 @@ uvicorn app:app --host 0.0.0.0 --port 7755 --reload
 1. 严格要求 `is_match == true`；
 2. 规范化 `target_smiles` 并要求其与当前待拆分目标完全相同；
 3. 规范化反应物并排除空反应物、自循环和重复候选；
-4. 调用相邻目录 `chemical_score` 的本地规则评分器；
+4. 通过 HTTP POST 调用 `chemical_score/app.py` 的独立评分服务；
 5. 按以下优先级展开：
 
 ```text

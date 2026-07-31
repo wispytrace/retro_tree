@@ -1,2 +1,4 @@
--e ../chemical_score[api]
+fastapi>=0.115
+rdkit>=2024.3.1
 requests>=2.31
+uvicorn[standard]>=0.30
