@@ -6,7 +6,13 @@ from .chemistry import canonicalize_smiles
 from .config import DEFAULT_TIME_BUDGET, PRICE_DEFAULT_UNIT
 from .local_api import LocalRetroAPIClient
 from .price import StockService
-from .utils import normalize_price_unit, route_quality_score, safe_float, split_reactants
+from .utils import (
+    normalize_price_unit,
+    route_priority_key,
+    route_quality_score,
+    safe_float,
+    split_reactants,
+)
 
 
 class SearchStopped(Exception):
@@ -327,17 +333,22 @@ class SynthesisPlanner:
         }
 
     def _prioritize_routes(self, routes: List[Dict]) -> List[Dict]:
+        routes = [route for route in routes if route.get("is_match") is True]
         all_reactants: List[str] = []
         for route in routes:
             all_reactants.extend(route.get("_clean_reactants") or split_reactants(route.get("materials_smiles", "")))
         self.stock_service.price_client.warmup_many(all_reactants, workers=self.parallel_workers)
 
-        def score(route: Dict) -> float:
+        def priority(route: Dict) -> tuple[int, float, float]:
             reactants = route.get("_clean_reactants") or split_reactants(route.get("materials_smiles", ""))
             stock_hits = sum(1 for s in reactants if self.stock_service.is_material(s))
-            return route_quality_score(route, stock_hits=stock_hits, reactant_count=len(reactants))
+            return route_priority_key(
+                route,
+                stock_hits=stock_hits,
+                reactant_count=len(reactants),
+            )
 
-        return sorted(routes, key=score, reverse=True)
+        return sorted(routes, key=priority)
 
     def _record_depth_timing(self, depth: int, elapsed_sec: float, smiles: str = "") -> None:
         depth_key = str(depth)
@@ -387,6 +398,8 @@ class SynthesisPlanner:
                 score += 10.0
             if cur.get("type") in {"dead_end", "cycle", "max_depth", "timeout"}:
                 score -= 2.0
-            score += route_quality_score(cur.get("selected_route") or {})
+            route = cur.get("selected_route") or {}
+            score += route_quality_score(route)
+            score += safe_float(route.get("chemical_score"), 0.0) / 10.0
             stack.extend(cur.get("children", []))
         return score

@@ -1,0 +1,2 @@
+-e ../chemical_score[api]
+requests>=2.31

@@ -84,6 +84,26 @@ def route_quality_score(route: dict, stock_hits: int = 0, reactant_count: int = 
     return model_score * 10.0 + stock_hits * 3.0 + min(y, 100.0) / 100.0 - reactant_count * 0.15
 
 
+def route_priority_key(
+    route: dict,
+    *,
+    stock_hits: int = 0,
+    reactant_count: int = 1,
+) -> tuple[int, float, float]:
+    """Ascending key: non-AI first, then chemical and legacy scores descending."""
+
+    is_ai = route.get("is_ai", False)
+    if isinstance(is_ai, str):
+        is_ai = is_ai.strip().lower() in {"1", "true", "yes"}
+    chemical_score = safe_float(route.get("chemical_score"), -1.0)
+    legacy_score = route_quality_score(
+        route,
+        stock_hits=stock_hits,
+        reactant_count=reactant_count,
+    )
+    return (1 if is_ai else 0, -chemical_score, -legacy_score)
+
+
 class IdGenerator:
     def __init__(self, start: int = 0):
         self.cur = start

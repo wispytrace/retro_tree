@@ -25,11 +25,44 @@ retro_refactor/
 ## 运行
 
 ```bash
+pip install -r requirements.txt
 export SCIFINDER_API_KEY="你的 SciFinder 接口 Key"
 # 也兼容旧变量名：export RETRO_API_KEY="你的 Key"
 
 uvicorn app:app --host 0.0.0.0 --port 7755 --reload
 ```
+
+## 本地候选过滤与排序
+
+本地逆合成接口返回的候选在进入搜索树前依次执行：
+
+1. 严格要求 `is_match == true`；
+2. 规范化 `target_smiles` 并要求其与当前待拆分目标完全相同；
+3. 规范化反应物并排除空反应物、自循环和重复候选；
+4. 调用相邻目录 `chemical_score` 的本地规则评分器；
+5. 按以下优先级展开：
+
+```text
+is_ai=false
+    ↓
+chemical_score 从高到低
+    ↓
+原模型/库存/收率综合分从高到低
+    ↓
+is_ai=true（非 AI 候选耗尽或均未解决后回退）
+```
+
+为了降低上游 Top-K 截断导致非 AI 候选没有被召回的概率，实际召回数量默认为规划
+`top_k` 的 4 倍，完成过滤、化学评分和排序后再截断。可通过
+`LOCAL_CANDIDATE_FETCH_MULTIPLIER` 调整。
+
+候选和最终路线会额外返回：
+
+- `chemical_score`：0–100 化学总分；
+- `chemical_score_dimensions`：可行性、证据支持度、安全性和经济性分数；
+- `chemical_score_coverage` 和 `chemical_score_coverage_details`；
+- `chemical_score_flags`：恒等反应、元素无来源等关键标志；
+- `model_score`：保留原候选模型分，避免与化学分混淆。
 
 ## 保留接口
 

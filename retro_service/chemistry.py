@@ -3,14 +3,17 @@ from typing import Optional
 try:
     from rdkit import Chem
     from rdkit.Chem import Draw
-    import graphviz
 
     RDKIT_AVAILABLE = True
 except ImportError:  # pragma: no cover - 部署环境没有 RDKit 时仍可提供 JSON 服务
     Chem = None
     Draw = None
-    graphviz = None
     RDKIT_AVAILABLE = False
+
+try:
+    import graphviz
+except ImportError:  # pragma: no cover - 仅影响路线图渲染
+    graphviz = None
 
 
 def canonicalize_smiles(smiles: str, *, isomeric: bool = False) -> Optional[str]:

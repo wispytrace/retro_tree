@@ -68,9 +68,25 @@ def format_to_test_json(trees: List[Dict], stats: Optional[Dict] = None) -> Dict
                     "yields_unit": "%",
                     "publish": selected_route.get("publish", ""),
                     "source_name": selected_route.get("source_name", ""),
+                    "is_match": selected_route.get("is_match", False),
                     "is_ai": selected_route.get("is_ai", False),
                     "similarity": selected_route.get("target_score", selected_route.get("similarity", 0.0)),
-                    "score": selected_route.get("final_score", selected_route.get("score", 0.0)),
+                    "score": selected_route.get(
+                        "chemical_score",
+                        selected_route.get("final_score", selected_route.get("score", 0.0)),
+                    ),
+                    "model_score": selected_route.get("final_score", selected_route.get("score", 0.0)),
+                    "chemical_score": selected_route.get("chemical_score"),
+                    "chemical_score_status": selected_route.get("chemical_score_status", ""),
+                    "chemical_score_coverage": selected_route.get("chemical_score_coverage", 0.0),
+                    "chemical_score_coverage_details": selected_route.get(
+                        "chemical_score_coverage_details", {}
+                    ),
+                    "chemical_score_dimensions": selected_route.get("chemical_score_dimensions", {}),
+                    "chemical_score_flags": selected_route.get("chemical_score_flags", []),
+                    "chemical_score_engine_version": selected_route.get(
+                        "chemical_score_engine_version", ""
+                    ),
                     "created_at": current_time,
                 })
 
@@ -116,7 +132,13 @@ def format_to_test_json(trees: List[Dict], stats: Optional[Dict] = None) -> Dict
 
             route_info = current_node.get("selected_route")
             if route_info:
-                step_score = route_info.get("score", route_info.get("similarity", route_info.get("target_score", 0.0)))
+                step_score = route_info.get(
+                    "chemical_score",
+                    route_info.get(
+                        "score",
+                        route_info.get("similarity", route_info.get("target_score", 0.0)),
+                    ),
+                )
                 scores.append(safe_float(step_score, 0.0))
 
             for child in current_node.get("children", []):
