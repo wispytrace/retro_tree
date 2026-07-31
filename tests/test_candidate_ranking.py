@@ -136,6 +136,39 @@ def test_candidates_require_exact_target_match_and_are_scored():
     assert candidates[-1]["is_ai"] is True
 
 
+def test_duplicate_reactions_preserve_all_source_names_and_score_once():
+    class CountingScorer(StubReactionScorer):
+        def __init__(self):
+            self.calls = []
+
+        def score(self, reaction_smiles):
+            self.calls.append(reaction_smiles)
+            return super().score(reaction_smiles)
+
+    scorer = CountingScorer()
+    client = LocalRetroAPIClient(
+        "http://unused.invalid",
+        reaction_scorer=scorer,
+    )
+    database_route = route("C.CO", is_match=True, is_ai=False)
+    database_route["source_name"] = "VectorDB"
+    model_route = route("CO.C", is_match=True, is_ai=True)
+    model_route["source_name"] = "SynthesisPredictor"
+
+    candidates = client._filter_routes(
+        [database_route, model_route],
+        canonicalize_smiles("CCO"),
+    )
+
+    assert len(candidates) == 1
+    assert candidates[0]["source_name"] == "VectorDB"
+    assert candidates[0]["source_names"] == [
+        "VectorDB",
+        "SynthesisPredictor",
+    ]
+    assert len(scorer.calls) == 1
+
+
 def test_candidate_envelope_and_overfetch_are_supported():
     client = LocalRetroAPIClient(
         "http://unused.invalid",
@@ -223,6 +256,7 @@ def test_formatter_exposes_chemical_ranking_fields():
     assert reaction["chemical_score"] == 85.0
     assert reaction["score"] == 85.0
     assert reaction["model_score"] == 0.5
+    assert reaction["source_names"] == ["test"]
 
 
 class FakePriceClient:

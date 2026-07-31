@@ -68,6 +68,12 @@ def format_to_test_json(trees: List[Dict], stats: Optional[Dict] = None) -> Dict
                     "yields_unit": "%",
                     "publish": selected_route.get("publish", ""),
                     "source_name": selected_route.get("source_name", ""),
+                    "source_names": selected_route.get(
+                        "source_names",
+                        [selected_route.get("source_name", "")]
+                        if selected_route.get("source_name")
+                        else [],
+                    ),
                     "is_match": selected_route.get("is_match", False),
                     "is_ai": selected_route.get("is_ai", False),
                     "similarity": selected_route.get("target_score", selected_route.get("similarity", 0.0)),

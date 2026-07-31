@@ -118,32 +118,63 @@ class LocalRetroAPIClient:
                 f"{new_route['materials_smiles']}>>{canonical_target}"
             )
             new_route["_clean_reactants"] = clean_reactants
-            try:
-                new_route.update(
-                    self.reaction_scorer.score(new_route["reaction_smiles"])
-                )
-            except Exception as exc:
-                logging.warning(
-                    "Chemical scoring rejected candidate %s: %s",
-                    new_route["reaction_smiles"],
-                    exc,
-                )
-                continue
+            new_route["source_names"] = self._source_names(new_route)
 
             existing = routes_by_signature.get(signature)
-            if existing is None or route_priority_key(
+            if existing is None:
+                routes_by_signature[signature] = new_route
+                continue
+
+            merged_source_names = list(
+                dict.fromkeys(
+                    self._source_names(existing)
+                    + self._source_names(new_route)
+                )
+            )
+            if route_priority_key(
                 new_route,
                 reactant_count=len(clean_reactants),
             ) < route_priority_key(
                 existing,
                 reactant_count=len(existing.get("_clean_reactants", [])),
             ):
+                new_route["source_names"] = merged_source_names
                 routes_by_signature[signature] = new_route
+            else:
+                existing["source_names"] = merged_source_names
+
+        scored_routes: List[Dict] = []
+        for route in routes_by_signature.values():
+            try:
+                route.update(
+                    self.reaction_scorer.score(route["reaction_smiles"])
+                )
+            except Exception as exc:
+                logging.warning(
+                    "Chemical scoring rejected candidate %s: %s",
+                    route["reaction_smiles"],
+                    exc,
+                )
+                continue
+            scored_routes.append(route)
 
         return sorted(
-            routes_by_signature.values(),
+            scored_routes,
             key=lambda route: route_priority_key(
                 route,
                 reactant_count=len(route.get("_clean_reactants", [])),
             ),
+        )
+
+    @staticmethod
+    def _source_names(route: Dict) -> List[str]:
+        names = route.get("source_names")
+        if not isinstance(names, list):
+            names = []
+        source_name = str(route.get("source_name") or "").strip()
+        return list(
+            dict.fromkeys(
+                [str(name).strip() for name in names if str(name).strip()]
+                + ([source_name] if source_name else [])
+            )
         )
