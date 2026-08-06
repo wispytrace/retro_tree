@@ -100,5 +100,5 @@ is_ai=true（非 AI 候选耗尽或均未解决后回退）
 
 1. 本地规划和 SciFinder 远程路线在 `/api/plan` 中并发执行，等待两者都结束后返回，整体超时 600 秒。
 2. SciFinder 路线插入 `data.list[0]`，其 route `id=0`，根结构 `structures[0].id=0`。
-3. SciFinder 的价格、库存、CAS 与价格统计只使用 `PriceClient` 的自有价格接口，不再使用 SciFinder 返回的 `overall_price` 或 `building_blocks`。
+3. SciFinder 的价格、库存与价格统计使用 `PriceClient` 的自有接口；结构节点 CAS 优先原样保留 SciFinder 的 `cas_number`，仅在源数据缺失 CAS 时使用 `PriceClient` 查询结果兜底。
 4. `scifinder_parse.py` 保留为兼容层，旧代码中的 `from scifinder_parse import retro_api_to_list` 不需要改。

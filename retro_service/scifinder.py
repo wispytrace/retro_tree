@@ -162,11 +162,15 @@ class SciFinderRouteFormatter:
 
                 # SciFinder 的叶子节点代表路线起始物；库存/价格只由自己的价格接口决定。
                 status = "material" if is_leaf else "intermediate"
+                # CAS 属于 SciFinder 路线源数据。价格接口可以补充缺失值，
+                # 但不能覆盖 SciFinder 返回的 cas_number。
+                source_cas = node.get("cas_number") or node.get("cas") or ""
+                resolved_cas = price_info.get("cas") or ""
                 converted = {
                     "id": node_id,
                     "type": 0,
                     "smiles": smiles,
-                    "cas": price_info.get("cas") or node.get("cas_number") or "",
+                    "cas": source_cas or resolved_cas,
                     "is_chemical": 1,
                     "in_stock": 1 if in_stock else 0,
                     "is_reaction": 0,
